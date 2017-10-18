@@ -1,14 +1,14 @@
-# Rusqlite
+# Rusqlcipher
 
 [![Travis Build Status](https://api.travis-ci.org/jgallagher/rusqlite.svg?branch=master)](https://travis-ci.org/jgallagher/rusqlite)
 [![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/jgallagher/rusqlite?branch=master&svg=true)](https://ci.appveyor.com/project/jgallagher/rusqlite) [![Latest Version](https://img.shields.io/crates/v/rusqlite.svg)](https://crates.io/crates/rusqlite)
 
-Rusqlite is an ergonomic wrapper for using SQLite from Rust. It attempts to expose
+Rusqlcipher is an ergonomic wrapper for using SQLCipher from Rust. It attempts to expose
 an interface similar to [rust-postgres](https://github.com/sfackler/rust-postgres). View the full
 [API documentation](http://jgallagher.github.io/rusqlite/rusqlite/index.html).
 
 ```rust
-extern crate rusqlite;
+extern crate rusqlcipher;
 extern crate time;
 
 use time::Timespec;
@@ -57,9 +57,13 @@ fn main() {
 }
 ```
 
+### SQLCipher
+This work is based on [`rusqlite`](https://github.com/jgallagher/rusqlite) and [`SQLCipher`](https://github.com/mikelodder7/sqlcipher).
+This package has precompiled SQLCipher to use OpenSSL 1.1.0 or newer and replaces the following three files in *libsqlite-sys/sqlite3/*: sqlite3.c, sqlite3.h, sqlite3ext.h. See [`openssl-sys`](https://crates.io/crates/openssl-sys) for information on compiling openssl.
+
 ### Supported SQLite Versions
 
-The base `rusqlite` package supports SQLite version 3.6.8 or newer. If you need
+The base `rusqlcipher` package supports SQLite version 3.6.8 or newer. If you need
 support for older versions, please file an issue. Some cargo features require a
 newer SQLite version; see details below.
 
@@ -69,7 +73,7 @@ Rusqlite provides several features that are behind [Cargo
 features](http://doc.crates.io/manifest.html#the-features-section). They are:
 
 * [`load_extension`](http://jgallagher.github.io/rusqlite/rusqlite/struct.LoadExtensionGuard.html)
-  allows loading dynamic library-based SQLite extensions.
+  allows loading dynamic library-based SQLCipher extensions.
 * [`backup`](http://jgallagher.github.io/rusqlite/rusqlite/backup/index.html)
   allows use of SQLite's online backup API. Note: This feature requires SQLite 3.6.11 or later.
 * [`functions`](http://jgallagher.github.io/rusqlite/rusqlite/functions/index.html)
@@ -91,11 +95,12 @@ features](http://doc.crates.io/manifest.html#the-features-section). They are:
   `Value` type from the [`serde_json` crate](https://crates.io/crates/serde_json).
 * `bundled` uses a bundled version of sqlite3.  This is a good option for cases where linking to sqlite3 is complicated, such as Windows.
 
-## Notes on building rusqlite and libsqlite3-sys
+## Notes on building rusqlcipher and libsqlite3-sys
 
-`libsqlite3-sys` is a separate crate from `rusqlite` that provides the Rust
+`libsqlite3-sys` is a separate crate from `rusqlcipher` that provides the Rust
 declarations for SQLite's C API. By default, `libsqlite3-sys` attempts to find a SQLite library that already exists on your system using pkg-config, or a
 [Vcpkg](https://github.com/Microsoft/vcpkg) installation for MSVC ABI builds. 
+`rusqlcipher` also depends on OpenSSL version 1.1.0 or above.
 
 You can adjust this behavior in a number of ways:
 
@@ -124,13 +129,13 @@ declarations from SQLite's C header file. `bindgen`
 running this as part of the build process of libraries that used this. We tried
 this briefly (`rusqlite` 0.10.0, specifically), but it had some annoyances:
 
-* The build time for `libsqlite3-sys` (and therefore `rusqlite`) increased
+* The build time for `libsqlite3-sys` (and therefore `rusqlcipher`) increased
   dramatically.
 * Running `bindgen` requires a relatively-recent version of Clang, which many
   systems do not have installed by default.
 * Running `bindgen` also requires the SQLite header file to be present.
 
-As of `rusqlite` 0.10.1, we avoid running `bindgen` at build-time by shipping
+As of `rusqlcipher` 0.1.0, we avoid running `bindgen` at build-time by shipping
 pregenerated bindings for several versions of SQLite. When compiling
 `rusqlite`, we use your selected Cargo features to pick the bindings for the
 minimum SQLite version that supports your chosen features. If you are using
@@ -149,9 +154,13 @@ versions, please file an issue. If you want to run `bindgen` at buildtime to
 produce your own bindings, use the `buildtime_bindgen` Cargo feature.
 
 ## Author
+Michael Lodder, redmike7@gmail.com
+
+## Original Author
 
 John Gallagher, johnkgallagher@gmail.com
 
 ## License
 
+Rusqlcipher is available under the Apache Version2 license. See the LICENSE file for more info.
 Rusqlite is available under the MIT license. See the LICENSE file for more info.
