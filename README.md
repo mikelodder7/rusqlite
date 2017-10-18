@@ -162,5 +162,5 @@ John Gallagher, johnkgallagher@gmail.com
 
 ## License
 
-Rusqlcipher is available under the Apache Version2 license. See the LICENSE file for more info.
-Rusqlite is available under the MIT license. See the LICENSE file for more info.
+Rusqlcipher is available under the Apache Version 2 license. See the LICENSE file for more info.
+Rusqlite is available under the MIT license. See the ORIGLICENSE file for more info.
