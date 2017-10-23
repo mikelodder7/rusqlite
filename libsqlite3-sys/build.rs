@@ -25,6 +25,8 @@ mod build {
             .flag("-DSQLITE_ENABLE_FTS3_PARENTHESIS")
             .flag("-DSQLITE_ENABLE_FTS5")
             .flag("-DSQLITE_ENABLE_JSON1")
+            .flag("-DSQLITE_HAS_CODEC")
+            .flag("-DSQLITE_TEMP_STORE=2")
             .flag("-DSQLITE_ENABLE_LOAD_EXTENSION=1")
             .flag("-DSQLITE_ENABLE_MEMORY_MANAGEMENT")
             .flag("-DSQLITE_ENABLE_RTREE")
@@ -35,6 +37,7 @@ mod build {
             .flag("-DSQLITE_THREADSAFE=1")
             .flag("-DSQLITE_USE_URI")
             .flag("-DHAVE_USLEEP=1")
+            .flag("-lcrypto")
             .compile("libsqlite3.a");
     }
 }
