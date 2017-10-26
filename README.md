@@ -59,7 +59,7 @@ fn main() {
 
 ### SQLCipher
 This work is based on [`rusqlite`](https://github.com/jgallagher/rusqlite) and [`SQLCipher`](https://github.com/mikelodder7/sqlcipher).
-This package has precompiled SQLCipher to use OpenSSL 1.1.0 or newer and replaces the following three files in *libsqlite-sys/sqlite3/*: sqlite3.c, sqlite3.h, sqlite3ext.h. See [`openssl-sys`](https://crates.io/crates/openssl-sys) for information on compiling openssl. SQLCipher has been modified to use HMAC-SHA256 instead of the default HMAC-SHA1.
+This package has precompiled SQLCipher to use OpenSSL 1.1.0 or newer and replaces the following three files in *libsqlcipher-sys/sqlite3/*: sqlite3.c, sqlite3.h, sqlite3ext.h. See [`openssl-sys`](https://crates.io/crates/openssl-sys) for information on compiling openssl. SQLCipher has been modified to use HMAC-SHA256 instead of the default HMAC-SHA1.
 
 ### Supported SQLite Versions
 
@@ -95,10 +95,10 @@ features](http://doc.crates.io/manifest.html#the-features-section). They are:
   `Value` type from the [`serde_json` crate](https://crates.io/crates/serde_json).
 * `bundled` uses a bundled version of sqlite3.  This is a good option for cases where linking to sqlite3 is complicated, such as Windows.
 
-## Notes on building rusqlcipher and libsqlite3-sys
+## Notes on building rusqlcipher and libsqlcipher-sys
 
-`libsqlite3-sys` is a separate crate from `rusqlcipher` that provides the Rust
-declarations for SQLite's C API. By default, `libsqlite3-sys` attempts to find a SQLite library that already exists on your system using pkg-config, or a
+`libsqlcipher-sys` is a separate crate from `rusqlcipher` that provides the Rust
+declarations for SQLite's C API. By default, `libsqlcipher-sys` attempts to find a SQLite library that already exists on your system using pkg-config, or a
 [Vcpkg](https://github.com/Microsoft/vcpkg) installation for MSVC ABI builds. 
 `rusqlcipher` also depends on OpenSSL version 1.1.0 or above.
 
@@ -127,7 +127,7 @@ We use [bindgen](https://crates.io/crates/bindgen) to generate the Rust
 declarations from SQLite's C header file. `bindgen`
 [recommends](https://github.com/servo/rust-bindgen#library-usage-with-buildrs)
 running this as part of the build process of libraries that used this. We tried
-this briefly (`rusqlite` 0.10.0, specifically), but it had some annoyances:
+this briefly (`rusqlcipher` 0.10.0, specifically), but it had some annoyances:
 
 * The build time for `libsqlcipher-sys` (and therefore `rusqlcipher`) increased
   dramatically.
@@ -137,9 +137,9 @@ this briefly (`rusqlite` 0.10.0, specifically), but it had some annoyances:
 
 As of `rusqlcipher` 0.1.0, we avoid running `bindgen` at build-time by shipping
 pregenerated bindings for several versions of SQLite. When compiling
-`rusqlite`, we use your selected Cargo features to pick the bindings for the
+`rusqlcipher`, we use your selected Cargo features to pick the bindings for the
 minimum SQLite version that supports your chosen features. If you are using
-`libsqlite3-sys` directly, you can use the same features to choose which
+`libsqlcipher-sys` directly, you can use the same features to choose which
 pregenerated bindings are chosen:
 
 * `min_sqlite_version_3_6_8` - SQLite 3.6.8 bindings (this is the default)
