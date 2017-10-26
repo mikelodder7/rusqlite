@@ -1,7 +1,7 @@
 [package]
 name = "rusqlcipher"
 version = "0.12.0"
-authors = ["John Gallagher <jgallagher@bignerdranch.com>"]
+authors = ["John Gallagher <jgallagher@bignerdranch.com>", "Mike Lodder <mike.lodder@evernym.com>"]
 description = "Ergonomic wrapper for SQLCipher"
 repository = "https://github.com/mikelodder7/rusqlcipher"
 documentation = "http://mikelodder7.github.io/rusqlcipher/rusqlcipher/index.html"

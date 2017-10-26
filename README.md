@@ -12,7 +12,7 @@ extern crate rusqlcipher;
 extern crate time;
 
 use time::Timespec;
-use rusqlite::Connection;
+use rusqlcipher::Connection;
 
 #[derive(Debug)]
 struct Person {
@@ -73,7 +73,7 @@ Rusqlite provides several features that are behind [Cargo
 features](http://doc.crates.io/manifest.html#the-features-section). They are:
 
 * [`load_extension`](http://jgallagher.github.io/rusqlite/rusqlite/struct.LoadExtensionGuard.html)
-  allows loading dynamic library-based SQLCipher extensions.
+  allows loading dynamic library-based SQLite3 extensions.
 * [`backup`](http://jgallagher.github.io/rusqlite/rusqlite/backup/index.html)
   allows use of SQLite's online backup API. Note: This feature requires SQLite 3.6.11 or later.
 * [`functions`](http://jgallagher.github.io/rusqlite/rusqlite/functions/index.html)
@@ -104,13 +104,13 @@ declarations for SQLite's C API. By default, `libsqlite3-sys` attempts to find a
 
 You can adjust this behavior in a number of ways:
 
-* If you use the `bundled` feature, `libsqlite3-sys` will use the
+* If you use the `bundled` feature, `libsqlcipher-sys` will use the
   [gcc](https://crates.io/crates/gcc) crate to compile SQLite from source and
-  link against that. This source is embedded in the `libsqlite3-sys` crate and
-  is currently SQLite 3.17.0 (as of `rusqlite` 0.10.1 / `libsqlite3-sys`
+  link against that. This source is embedded in the `libsqlcipher-sys` crate and
+  is currently SQLite 3.15.2 (as of `rusqlcipher` 0.10.1 / `libsqlcipher-sys`
   0.7.1).  This is probably the simplest solution to any build problems. You can enable this by adding the following in your `Cargo.toml` file:
   ```
-  [dependencies.rusqlite]
+  [dependencies.rusqlcipher]
   version = "0.11.0"
   features = ["bundled"]
   ```
@@ -129,7 +129,7 @@ declarations from SQLite's C header file. `bindgen`
 running this as part of the build process of libraries that used this. We tried
 this briefly (`rusqlite` 0.10.0, specifically), but it had some annoyances:
 
-* The build time for `libsqlite3-sys` (and therefore `rusqlcipher`) increased
+* The build time for `libsqlcipher-sys` (and therefore `rusqlcipher`) increased
   dramatically.
 * Running `bindgen` requires a relatively-recent version of Clang, which many
   systems do not have installed by default.
