@@ -52,7 +52,7 @@
 //! ```
 #![allow(unknown_lints)]
 
-extern crate libsqlite3_sys as ffi;
+extern crate libsqlcipher_sys as ffi;
 extern crate lru_cache;
 #[macro_use]
 extern crate bitflags;
@@ -1217,7 +1217,7 @@ mod test {
     }
 
     mod query_and_then_tests {
-        extern crate libsqlite3_sys as ffi;
+        extern crate libsqlcipher_sys as ffi;
         use super::*;
 
         #[derive(Debug)]

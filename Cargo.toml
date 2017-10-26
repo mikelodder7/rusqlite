@@ -1,12 +1,12 @@
 [package]
-name = "rusqlite"
+name = "rusqlcipher"
 version = "0.12.0"
 authors = ["John Gallagher <jgallagher@bignerdranch.com>"]
-description = "Ergonomic wrapper for SQLite"
-repository = "https://github.com/jgallagher/rusqlite"
-documentation = "http://jgallagher.github.io/rusqlite/rusqlite/index.html"
+description = "Ergonomic wrapper for SQLCipher"
+repository = "https://github.com/mikelodder7/rusqlcipher"
+documentation = "http://mikelodder7.github.io/rusqlcipher/rusqlcipher/index.html"
 readme = "README.md"
-keywords = ["sqlite", "database", "ffi"]
+keywords = ["sqlite", "sqlcipher", "database", "ffi"]
 license = "MIT"
 categories = ["database"]
 
@@ -15,16 +15,16 @@ travis-ci = { repository = "jgallagher/rusqlite" }
 appveyor = { repository = "jgallagher/rusqlite" }
 
 [lib]
-name = "rusqlite"
+name = "rusqlcipher"
 
 [features]
 load_extension = []
-backup = ["libsqlite3-sys/min_sqlite_version_3_6_11"]
-blob = ["libsqlite3-sys/min_sqlite_version_3_7_4"]
-functions = ["libsqlite3-sys/min_sqlite_version_3_7_3"]
-trace = ["libsqlite3-sys/min_sqlite_version_3_6_23"]
-bundled = ["libsqlite3-sys/bundled"]
-buildtime_bindgen = ["libsqlite3-sys/buildtime_bindgen"]
+backup = ["libsqlcipher-sys/min_sqlite_version_3_6_11"]
+blob = ["libsqlcipher-sys/min_sqlite_version_3_7_4"]
+functions = ["libsqlcipher-sys/min_sqlite_version_3_7_3"]
+trace = ["libsqlcipher-sys/min_sqlite_version_3_6_23"]
+bundled = ["libsqlcipher-sys/bundled"]
+buildtime_bindgen = ["libsqlcipher-sys/buildtime_bindgen"]
 limits = []
 
 [dependencies]
@@ -39,8 +39,8 @@ tempdir = "0.3"
 lazy_static = "0.2"
 regex = "0.2"
 
-[dependencies.libsqlite3-sys]
-path = "libsqlite3-sys"
+[dependencies.libsqlcipher-sys]
+path = "libsqlcipher-sys"
 version = "0.8"
 
 [[test]]
