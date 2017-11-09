@@ -2,19 +2,63 @@ fn main() {
     build::main();
 }
 
+
+
 #[cfg(feature = "bundled")]
 mod build {
     extern crate gcc;
     use std::{env, fs};
-    use std::path::Path;
+    use std::ffi::OsString;
+    use std::path::{Path, PathBuf};
 
     pub fn main() {
+        let target = env::var("TARGET").unwrap();
+        let host = env::var("HOST").unwrap();
+        let mut lib = String::new();
+        let mut inc = String::new();
+
+        if host.contains("windows") && target.contains("windows") {
+            let lib_dir = env("OPENSSL_LIB_DIR").map(PathBuf::from);
+            let inc_dir = env("OPENSSL_INCLUDE_DIR").map(PathBuf::from);
+
+            let (lib_dir, inc_dir) = if lib_dir.is_none() || inc_dir.is_none() {
+                let openssl_dir = env("OPENSSL_DIR")
+                    .map(PathBuf::from)
+                    .expect("Missing environment variable OPENSSL_DIR or OPENSSL_DIR is not set");
+                let lib_dir = lib_dir.unwrap_or_else(|| openssl_dir.join("lib"));
+                let inc_dir = inc_dir.unwrap_or_else(|| openssl_dir.join("include"));
+                (lib_dir, inc_dir)
+            } else {
+                (lib_dir.unwrap(), inc_dir.unwrap())
+            };
+
+            if !Path::new(&lib_dir).exists() {
+                panic!(
+                    "OpenSSL library directory does not exist: {}",
+                    lib_dir.to_string_lossy()
+                );
+            }
+
+            if !Path::new(&inc_dir).exists() {
+                panic!(
+                    "OpenSSL include directory does not exist: {}",
+                    inc_dir.to_string_lossy()
+                )
+            }
+            lib.push_str(lib_dir.to_string_lossy().as_ref());
+            lib.push_str("\\");
+            lib.push_str("libeay32.lib");
+            inc.push_str(inc_dir.to_string_lossy().as_ref());
+        } else {
+            lib.push_str("-lcrypto");
+        }
+
         let out_dir = env::var("OUT_DIR").unwrap();
         let out_path = Path::new(&out_dir).join("bindgen.rs");
         fs::copy("sqlite3/bindgen_bundled_version.rs", out_path)
             .expect("Could not copy bindings to output directory");
 
-        gcc::Config::new()
+        gcc::Build::new()
             .file("sqlite3/sqlite3.c")
             .flag("-DSQLITE_CORE")
             .flag("-DSQLITE_DEFAULT_FOREIGN_KEYS=1")
@@ -37,8 +81,20 @@ mod build {
             .flag("-DSQLITE_THREADSAFE=1")
             .flag("-DSQLITE_USE_URI")
             .flag("-DHAVE_USLEEP=1")
-            .flag("-lcrypto")
+            .flag(&lib)
+            .include(&inc)
             .compile("libsqlite3.a");
+    }
+
+    fn env(name: &str) -> Option<OsString> {
+        let prefix = env::var("TARGET").unwrap().to_uppercase().replace("-", "_");
+        let prefixed = format!("{}_{}", prefix, name);
+        let var = env::var_os(&prefixed);
+
+        match var {
+            None => env::var_os(name),
+            _ => var
+        }
     }
 }
 
