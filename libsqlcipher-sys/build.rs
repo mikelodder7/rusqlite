@@ -2,8 +2,6 @@ fn main() {
     build::main();
 }
 
-
-
 #[cfg(feature = "bundled")]
 mod build {
     extern crate gcc;
@@ -14,37 +12,38 @@ mod build {
     pub fn main() {
         let target = env::var("TARGET").unwrap();
         let host = env::var("HOST").unwrap();
+
         let mut lib = String::new();
         let mut inc = String::new();
 
+
+        let lib_dir = env("OPENSSL_LIB_DIR").map(PathBuf::from);
+        let inc_dir = env("OPENSSL_INCLUDE_DIR").map(PathBuf::from);
+
+        let (lib_dir, inc_dir) = if lib_dir.is_none() || inc_dir.is_none() {
+            let openssl_dir = find_openssl_dir(&host, &target);
+            let lib_dir = lib_dir.unwrap_or_else(|| openssl_dir.join("lib"));
+            let inc_dir = inc_dir.unwrap_or_else(|| openssl_dir.join("include"));
+            (lib_dir, inc_dir)
+        } else {
+            (lib_dir.unwrap(), inc_dir.unwrap())
+        };
+
+        if !Path::new(&lib_dir).exists() {
+            panic!(
+                "OpenSSL library directory does not exist: {}",
+                lib_dir.to_string_lossy()
+            );
+        }
+
+        if !Path::new(&inc_dir).exists() {
+            panic!(
+                "OpenSSL include directory does not exist: {}",
+                inc_dir.to_string_lossy()
+            )
+        }
+
         if host.contains("windows") && target.contains("windows") {
-            let lib_dir = env("OPENSSL_LIB_DIR").map(PathBuf::from);
-            let inc_dir = env("OPENSSL_INCLUDE_DIR").map(PathBuf::from);
-
-            let (lib_dir, inc_dir) = if lib_dir.is_none() || inc_dir.is_none() {
-                let openssl_dir = env("OPENSSL_DIR")
-                    .map(PathBuf::from)
-                    .expect("Missing environment variable OPENSSL_DIR or OPENSSL_DIR is not set");
-                let lib_dir = lib_dir.unwrap_or_else(|| openssl_dir.join("lib"));
-                let inc_dir = inc_dir.unwrap_or_else(|| openssl_dir.join("include"));
-                (lib_dir, inc_dir)
-            } else {
-                (lib_dir.unwrap(), inc_dir.unwrap())
-            };
-
-            if !Path::new(&lib_dir).exists() {
-                panic!(
-                    "OpenSSL library directory does not exist: {}",
-                    lib_dir.to_string_lossy()
-                );
-            }
-
-            if !Path::new(&inc_dir).exists() {
-                panic!(
-                    "OpenSSL include directory does not exist: {}",
-                    inc_dir.to_string_lossy()
-                )
-            }
             lib.push_str(lib_dir.to_string_lossy().as_ref());
             lib.push_str("\\");
             lib.push_str("libeay32.lib");
@@ -94,6 +93,37 @@ mod build {
         match var {
             None => env::var_os(name),
             _ => var
+        }
+    }
+
+    fn find_openssl_dir(host: &String, target: &String) -> PathBuf {
+        let openssl_dir = env("OPENSSL_DIR");
+
+        match openssl_dir {
+            Some(path) => PathBuf::from(path),
+            None => {
+                let openssl_dir = env("OPENSSLDIR");
+
+                match openssl_dir {
+                    Some(path) => PathBuf::from(path),
+                    None => {
+                        if host.contains("apple-darwin") && target.contains("apple-darwin") {
+                            let homebrew = Path::new("/usr/local/opt/openssl@1.1");
+                            if homebrew.exists() {
+                                return homebrew.to_path_buf();
+                            }
+                            let homebrew = Path::new("/usr/local/opt/openssl");
+                            if homebrew.exists() {
+                                return homebrew.to_path_buf();
+                            }
+                        }
+                        if host.contains("windows") && target.contains("windows") {
+                            panic!("Missing environment variable OPENSSL_DIR or OPENSSL_DIR is not set");
+                        }
+                        PathBuf::new()
+                    }
+                }
+            }
         }
     }
 }
