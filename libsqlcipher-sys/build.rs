@@ -13,52 +13,8 @@ mod build {
         let target = env::var("TARGET").unwrap();
         let host = env::var("HOST").unwrap();
 
-        let mut lib = String::new();
-        let mut inc = String::new();
-
-
-        let lib_dir = env("OPENSSL_LIB_DIR").map(PathBuf::from);
-        let inc_dir = env("OPENSSL_INCLUDE_DIR").map(PathBuf::from);
-
-        let (lib_dir, inc_dir) = if lib_dir.is_none() || inc_dir.is_none() {
-            let openssl_dir = find_openssl_dir(&host, &target);
-            let lib_dir = lib_dir.unwrap_or_else(|| openssl_dir.join("lib"));
-            let inc_dir = inc_dir.unwrap_or_else(|| openssl_dir.join("include"));
-            (lib_dir, inc_dir)
-        } else {
-            (lib_dir.unwrap(), inc_dir.unwrap())
-        };
-
-        if !Path::new(&lib_dir).exists() {
-            panic!(
-                "OpenSSL library directory does not exist: {}",
-                lib_dir.to_string_lossy()
-            );
-        }
-
-        if !Path::new(&inc_dir).exists() {
-            panic!(
-                "OpenSSL include directory does not exist: {}",
-                inc_dir.to_string_lossy()
-            )
-        }
-
-        if host.contains("windows") && target.contains("windows") {
-            lib.push_str(lib_dir.to_string_lossy().as_ref());
-            lib.push_str("\\");
-            lib.push_str("libeay32.lib");
-            inc.push_str(inc_dir.to_string_lossy().as_ref());
-        } else {
-            lib.push_str("-lcrypto");
-        }
-
-        let out_dir = env::var("OUT_DIR").unwrap();
-        let out_path = Path::new(&out_dir).join("bindgen.rs");
-        fs::copy("sqlite3/bindgen_bundled_version.rs", out_path)
-            .expect("Could not copy bindings to output directory");
-
-        gcc::Build::new()
-            .file("sqlite3/sqlite3.c")
+        let mut cc = gcc::Build::new();
+        cc.file("sqlite3/sqlite3.c")
             .flag("-DSQLITE_CORE")
             .flag("-DSQLITE_DEFAULT_FOREIGN_KEYS=1")
             .flag("-DSQLITE_ENABLE_API_ARMOR")
@@ -79,10 +35,66 @@ mod build {
             .flag("-DSQLITE_SOUNDEX")
             .flag("-DSQLITE_THREADSAFE=1")
             .flag("-DSQLITE_USE_URI")
-            .flag("-DHAVE_USLEEP=1")
-            .flag(&lib)
-            .include(&inc)
-            .compile("libsqlite3.a");
+            .flag("-DHAVE_USLEEP=1");
+
+        let is_windows = host.contains("windows") && target.contains("windows");
+        let is_apple = host.contains("apple") && target.contains("apple");
+
+        let lib_dir = env("OPENSSL_LIB_DIR").map(PathBuf::from);
+        let inc_dir = env("OPENSSL_INCLUDE_DIR").map(PathBuf::from);
+
+        let (lib_dir, inc_dir) = if lib_dir.is_none() || inc_dir.is_none() {
+                match find_openssl_dir() {
+                    None => {
+                        if is_windows {
+                            panic!("Missing environment variable OPENSSL_DIR or OPENSSL_DIR is not set")
+                        }
+                        (PathBuf::new(), PathBuf::new())
+                    },
+                    Some(openssl_dir) => {
+                        let lib_dir = lib_dir.unwrap_or_else(|| openssl_dir.join("lib"));
+                        let inc_dir = inc_dir.unwrap_or_else(|| openssl_dir.join("include"));
+
+                        if !Path::new(&lib_dir).exists() {
+                            panic!(
+                                "OpenSSL library directory does not exist: {}",
+                                lib_dir.to_string_lossy()
+                            );
+                        }
+
+                        if !Path::new(&inc_dir).exists() {
+                            panic!(
+                                "OpenSSL include directory does not exist: {}",
+                                inc_dir.to_string_lossy()
+                            )
+                        }
+
+                        (lib_dir, inc_dir)
+                    }
+            }
+        } else {
+            (lib_dir.unwrap(), inc_dir.unwrap())
+        };
+
+        if is_windows {
+            let mut lib = String::new();
+            lib.push_str(lib_dir.to_string_lossy().as_ref());
+            lib.push_str("\\");
+            lib.push_str("libeay32.lib");
+            cc.flag(&lib);
+            cc.include(inc_dir.to_string_lossy().as_ref());
+        } else if is_apple {
+            cc.flag("-DSQLCIPHER_CRYPTO_CC");
+        } else {
+            cc.flag("-lcrypto");
+        }
+
+        let out_dir = env::var("OUT_DIR").unwrap();
+        let out_path = Path::new(&out_dir).join("bindgen.rs");
+        fs::copy("sqlite3/bindgen_bundled_version.rs", out_path)
+            .expect("Could not copy bindings to output directory");
+
+        cc.compile("libsqlite3.a");
     }
 
     fn env(name: &str) -> Option<OsString> {
@@ -96,32 +108,17 @@ mod build {
         }
     }
 
-    fn find_openssl_dir(host: &String, target: &String) -> PathBuf {
+    fn find_openssl_dir() -> Option<PathBuf> {
         let openssl_dir = env("OPENSSL_DIR");
 
         match openssl_dir {
-            Some(path) => PathBuf::from(path),
+            Some(path) => Some(PathBuf::from(path)),
             None => {
                 let openssl_dir = env("OPENSSLDIR");
 
                 match openssl_dir {
-                    Some(path) => PathBuf::from(path),
-                    None => {
-                        if host.contains("apple-darwin") && target.contains("apple-darwin") {
-                            let homebrew = Path::new("/usr/local/opt/openssl@1.1");
-                            if homebrew.exists() {
-                                return homebrew.to_path_buf();
-                            }
-                            let homebrew = Path::new("/usr/local/opt/openssl");
-                            if homebrew.exists() {
-                                return homebrew.to_path_buf();
-                            }
-                        }
-                        if host.contains("windows") && target.contains("windows") {
-                            panic!("Missing environment variable OPENSSL_DIR or OPENSSL_DIR is not set");
-                        }
-                        PathBuf::new()
-                    }
+                    Some(path) => Some(PathBuf::from(path)),
+                    None => None
                 }
             }
         }
