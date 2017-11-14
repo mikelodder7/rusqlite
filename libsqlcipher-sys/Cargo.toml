@@ -1,6 +1,6 @@
 [package]
 name = "libsqlcipher-sys"
-version = "0.8.5"
+version = "0.8.6"
 authors = ["John Gallagher <jgallagher@bignerdranch.com>", "Mike Lodder <mike.lodder@evernym.com"]
 repository = "https://github.com/mikelodder7/rusqlcipher"
 description = "Native bindings to the libsqlcipher library"

@@ -42,9 +42,10 @@ mod build {
 
         let lib_dir = env("OPENSSL_LIB_DIR").map(PathBuf::from);
         let inc_dir = env("OPENSSL_INCLUDE_DIR").map(PathBuf::from);
+        let mut use_openssl = false;
 
         let (lib_dir, inc_dir) = if lib_dir.is_none() || inc_dir.is_none() {
-                match find_openssl_dir() {
+                match find_openssl_dir(&host, &target) {
                     None => {
                         if is_windows {
                             panic!("Missing environment variable OPENSSL_DIR or OPENSSL_DIR is not set")
@@ -69,10 +70,13 @@ mod build {
                             )
                         }
 
+                        use_openssl = true;
+
                         (lib_dir, inc_dir)
                     }
             }
         } else {
+            use_openssl = true;
             (lib_dir.unwrap(), inc_dir.unwrap())
         };
 
@@ -83,7 +87,11 @@ mod build {
             lib.push_str("libeay32.lib");
             cc.flag(&lib);
             cc.include(inc_dir.to_string_lossy().as_ref());
-        } else if is_apple {
+        } else if use_openssl {
+            cc.flag(lib_dir.to_string_lossy().as_ref());
+            cc.include(inc_dir.to_string_lossy().as_ref());
+            cc.flag("-lcrypto");
+        } else if is_apple  {
             cc.flag("-DSQLCIPHER_CRYPTO_CC");
             cc.object("/System/Library/Frameworks/SecurityFoundation.framework/SecurityFoundation");
         } else {
@@ -109,7 +117,7 @@ mod build {
         }
     }
 
-    fn find_openssl_dir() -> Option<PathBuf> {
+    fn find_openssl_dir(host: &String, target: &String) -> Option<PathBuf> {
         let openssl_dir = env("OPENSSL_DIR");
 
         match openssl_dir {
@@ -119,7 +127,21 @@ mod build {
 
                 match openssl_dir {
                     Some(path) => Some(PathBuf::from(path)),
-                    None => None
+                    None => {
+                        if host.contains("apple-darwin") && target.contains("apple-darwin") {
+                            let homebrew = Path::new("/usr/local/opt/openssl@1.1");
+                            if homebrew.exists() {
+                                return Some(homebrew.to_path_buf().into());
+                            }
+                            let homebrew = Path::new("/usr/local/opt/openssl");
+                            if homebrew.exists() {
+                                return Some(homebrew.to_path_buf().into());
+                            }
+                            None
+                        } else {
+                            None
+                        }
+                    }
                 }
             }
         }
