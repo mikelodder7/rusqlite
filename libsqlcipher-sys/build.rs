@@ -85,6 +85,7 @@ mod build {
             cc.include(inc_dir.to_string_lossy().as_ref());
         } else if is_apple {
             cc.flag("-DSQLCIPHER_CRYPTO_CC");
+            cc.object("/System/Library/Frameworks/SecurityFoundation.framework/SecurityFoundation");
         } else {
             cc.flag("-lcrypto");
         }
