@@ -156,6 +156,7 @@ mod build {
     extern crate vcpkg;
 
     use std::env;
+    use std::io::Write;
 
     pub enum HeaderLocation {
         FromEnvironment,
@@ -185,9 +186,30 @@ mod build {
 
     // Prints the necessary cargo link commands and returns the path to the header.
     fn find_sqlite() -> HeaderLocation {
+        // On some systems, both libsqlite3 and libsqlcipher are present.
+        // Setting SQLITE3_LIBNAME to "sqlcipher" can ensure that the desired
+        // library is linked.
+        let libname: String = match env::var("SQLITE3_LIBNAME") {
+            Ok(newname) => {
+                if newname.starts_with("lib") &&
+                    env::var("SQLITE3_LIBNAME_STARTSWITHLIB").is_err() {
+                    writeln!(
+                        &mut ::std::io::stderr(),
+                        concat!(
+                            "SQLITE3_LIBNAME starts with 'lib'.  This is ",
+                            "probably not what you want.  Silence this ",
+                            "warning by setting SQLITE3_LIBNAME_STARTSWITHLIB."
+                        )
+                    ).expect("Failed to warn the user on stderr");
+                };
+                newname
+            },
+            Err(_err) => String::from("sqlite3")
+        };
+
         // Allow users to specify where to find SQLite.
         if let Ok(dir) = env::var("SQLITE3_LIB_DIR") {
-            println!("cargo:rustc-link-lib=sqlite3");
+            println!("cargo:rustc-link-lib={}", libname);
             println!("cargo:rustc-link-search={}", dir);
             return HeaderLocation::FromEnvironment;
         }
@@ -197,7 +219,7 @@ mod build {
         }
 
         // See if pkg-config can do everything for us.
-        match pkg_config::Config::new().print_system_libs(false).probe("sqlite3") {
+        match pkg_config::Config::new().print_system_libs(false).probe(&libname) {
             Ok(mut lib) => {
                 if let Some(mut header) = lib.include_paths.pop() {
                     header.push("sqlite3.h");
@@ -211,7 +233,7 @@ mod build {
                 // request and hope that the library exists on the system paths. We used to
                 // output /usr/lib explicitly, but that can introduce other linking problems; see
                 // https://github.com/jgallagher/rusqlite/issues/207.
-                println!("cargo:rustc-link-lib=sqlite3");
+                println!("cargo:rustc-link-lib={}", libname);
                 HeaderLocation::Wrapper
             }
         }
@@ -220,7 +242,7 @@ mod build {
     #[cfg(all(feature = "vcpkg", target_env = "msvc"))]
     fn try_vcpkg() -> Option<HeaderLocation> {
         // See if vcpkg can find it.
-        if let Ok(mut lib) = vcpkg::Config::new().probe("sqlite3") {
+        if let Ok(mut lib) = vcpkg::Config::new().probe(&libname) {
             if let Some(mut header) = lib.include_paths.pop() {
                 header.push("sqlite3.h");
                 return Some(HeaderLocation::FromPath(header.to_string_lossy().into()));
