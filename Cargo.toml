@@ -27,7 +27,7 @@ bundled = ["libsqlcipher-sys/bundled"]
 buildtime_bindgen = ["libsqlcipher-sys/buildtime_bindgen"]
 limits = []
 hooks = []
-sqlcipher = ["libsqlite3-sys/sqlcipher"]
+sqlcipher = ["libsqlcipher-sys/sqlcipher"]
 
 [dependencies]
 time = "0.1.0"
@@ -43,7 +43,7 @@ regex = "1.0"
 
 [dependencies.libsqlcipher-sys]
 path = "libsqlcipher-sys"
-version = "0.8.6"
+version = "0.8.7"
 
 [[test]]
 name = "config_log"
