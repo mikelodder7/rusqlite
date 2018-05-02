@@ -156,7 +156,6 @@ mod build {
     extern crate vcpkg;
 
     use std::env;
-    use std::io::Write;
 
     pub enum HeaderLocation {
         FromEnvironment,
@@ -190,7 +189,7 @@ mod build {
         let link_lib = link_lib();
 
         // Allow users to specify where to find SQLite.
-        if let Ok(dir) = env::var(format!("{}_LIB_DIR", env_prefix())) {
+        if env::var(format!("{}_LIB_DIR", env_prefix())).is_ok() {
             println!("cargo:rustc-link-lib={}", link_lib);
             return HeaderLocation::FromEnvironment;
         }
