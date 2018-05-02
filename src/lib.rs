@@ -82,7 +82,7 @@ use cache::StatementCache;
 pub use statement::Statement;
 use statement::StatementCrateImpl;
 
-pub use row::{Row, Rows, MappedRows, AndThenRows};
+pub use row::{Row, Rows, MappedRows, AndThenRows, RowIndex};
 use row::RowsCrateImpl;
 
 #[allow(deprecated)]
@@ -121,6 +121,10 @@ pub mod functions;
 pub mod blob;
 #[cfg(feature = "limits")]
 pub mod limits;
+#[cfg(feature = "hooks")]
+mod hooks;
+#[cfg(feature = "hooks")]
+pub use hooks::*;
 
 // Number of cached prepared statements we'll hold on to.
 const STATEMENT_CACHE_DEFAULT_CAPACITY: usize = 16;
@@ -142,7 +146,7 @@ fn str_to_cstring(s: &str) -> Result<CString> {
 }
 
 fn path_to_cstring(p: &Path) -> Result<CString> {
-    let s = try!(p.to_str().ok_or(Error::InvalidPath(p.to_owned())));
+    let s = try!(p.to_str().ok_or_else(|| Error::InvalidPath(p.to_owned())));
     str_to_cstring(s)
 }
 
@@ -185,11 +189,17 @@ pub struct Connection {
 
 unsafe impl Send for Connection {}
 
+impl Drop for Connection {
+    fn drop(&mut self) {
+        self.flush_prepared_statement_cache();
+    }
+}
+
 impl Connection {
     /// Open a new connection to a SQLite database.
     ///
     /// `Connection::open(path)` is equivalent to `Connection::open_with_flags(path,
-    /// SQLITE_OPEN_READ_WRITE | SQLITE_OPEN_CREATE)`.
+    /// OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE)`.
     ///
     /// # Failure
     ///
@@ -588,18 +598,19 @@ bitflags! {
         const SQLITE_OPEN_READ_ONLY     = ffi::SQLITE_OPEN_READONLY;
         const SQLITE_OPEN_READ_WRITE    = ffi::SQLITE_OPEN_READWRITE;
         const SQLITE_OPEN_CREATE        = ffi::SQLITE_OPEN_CREATE;
-        const SQLITE_OPEN_URI           = 0x00000040;
-        const SQLITE_OPEN_MEMORY        = 0x00000080;
+        const SQLITE_OPEN_URI           = 0x0000_0040;
+        const SQLITE_OPEN_MEMORY        = 0x0000_0080;
         const SQLITE_OPEN_NO_MUTEX      = ffi::SQLITE_OPEN_NOMUTEX;
         const SQLITE_OPEN_FULL_MUTEX    = ffi::SQLITE_OPEN_FULLMUTEX;
-        const SQLITE_OPEN_SHARED_CACHE  = 0x00020000;
-        const SQLITE_OPEN_PRIVATE_CACHE = 0x00040000;
+        const SQLITE_OPEN_SHARED_CACHE  = 0x0002_0000;
+        const SQLITE_OPEN_PRIVATE_CACHE = 0x0004_0000;
     }
 }
 
 impl Default for OpenFlags {
     fn default() -> OpenFlags {
-        SQLITE_OPEN_READ_WRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NO_MUTEX | SQLITE_OPEN_URI
+        OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE | 
+        OpenFlags::SQLITE_OPEN_NO_MUTEX | OpenFlags::SQLITE_OPEN_URI
     }
 }
 
@@ -638,7 +649,7 @@ fn ensure_valid_sqlite_version() {
         let version_number = version_number();
 
         // Check our hard floor.
-        if version_number < 3006008 {
+        if version_number < 3_006_008 {
             panic!("rusqlite requires SQLite 3.6.8 or newer");
         }
 
@@ -691,7 +702,7 @@ fn ensure_safe_sqlite_threading_mode() -> Result<()> {
     //    will fail if someone else has already initialized SQLite even if they initialized it
     //    safely. That's not ideal either, which is why we expose bypass_sqlite_initialization
     //    above.
-    if version_number() >= 3007000 {
+    if version_number() >= 3_007_000 {
         const SQLITE_SINGLETHREADED_MUTEX_MAGIC: usize = 8;
         let is_singlethreaded = unsafe {
             let mutex_ptr = ffi::sqlite3_mutex_alloc(0);
@@ -737,9 +748,9 @@ impl InnerConnection {
 
         // Replicate the check for sane open flags from SQLite, because the check in SQLite itself
         // wasn't added until version 3.7.3.
-        debug_assert!(1 << SQLITE_OPEN_READ_ONLY.bits == 0x02);
-        debug_assert!(1 << SQLITE_OPEN_READ_WRITE.bits == 0x04);
-        debug_assert!(1 << (SQLITE_OPEN_READ_WRITE | SQLITE_OPEN_CREATE).bits == 0x40);
+        debug_assert_eq!(1 << OpenFlags::SQLITE_OPEN_READ_ONLY.bits, 0x02);
+        debug_assert_eq!(1 << OpenFlags::SQLITE_OPEN_READ_WRITE.bits, 0x04);
+        debug_assert_eq!(1 << (OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE).bits, 0x40);
         if (1 << (flags.bits & 0x7)) & 0x46 == 0 {
             return Err(Error::SqliteFailure(ffi::Error::new(ffi::SQLITE_MISUSE), None));
         }
@@ -785,6 +796,10 @@ impl InnerConnection {
     }
 
     fn close(&mut self) -> Result<()> {
+        if self.db.is_null() {
+            return Ok(());
+        }
+        self.remove_hooks();
         unsafe {
             let r = ffi::sqlite3_close(self.db());
             let r = self.decode_result(r);
@@ -862,12 +877,24 @@ impl InnerConnection {
     fn changes(&mut self) -> c_int {
         unsafe { ffi::sqlite3_changes(self.db()) }
     }
+
+    #[cfg(not(feature = "hooks"))]
+    fn remove_hooks(&mut self) {
+    }
 }
 
 impl Drop for InnerConnection {
     #[allow(unused_must_use)]
     fn drop(&mut self) {
-        self.close();
+        use std::thread::panicking;
+
+        if let Err(e) = self.close() {
+            if panicking() {
+                eprintln!("Error while closing SQLite connection: {:?}", e);
+            } else {
+                panic!("Error while closing SQLite connection: {:?}", e);
+            }
+        }
     }
 }
 
@@ -918,7 +945,7 @@ mod test {
                    CREATE TABLE foo(x INTEGER);
                    INSERT INTO foo VALUES(42);
                    END;";
-                   db.execute_batch(sql).unwrap();
+            db.execute_batch(sql).unwrap();
         }
 
         let path_string = path.to_str().unwrap();
@@ -976,8 +1003,8 @@ mod test {
     #[test]
     fn test_open_with_flags() {
         for bad_flags in &[OpenFlags::empty(),
-                           SQLITE_OPEN_READ_ONLY | SQLITE_OPEN_READ_WRITE,
-                           SQLITE_OPEN_READ_ONLY | SQLITE_OPEN_CREATE] {
+                           OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_READ_WRITE,
+                           OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_CREATE] {
             assert!(Connection::open_in_memory_with_flags(*bad_flags).is_err());
         }
     }

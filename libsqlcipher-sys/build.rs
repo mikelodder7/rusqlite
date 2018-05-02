@@ -4,7 +4,7 @@ fn main() {
 
 #[cfg(feature = "bundled")]
 mod build {
-    extern crate gcc;
+    extern crate cc;
     use std::{env, fs};
     use std::ffi::OsString;
     use std::path::{Path, PathBuf};
@@ -168,8 +168,9 @@ mod build {
         fn from(header: HeaderLocation) -> String {
             match header {
                 HeaderLocation::FromEnvironment => {
-                    let mut header = env::var("SQLITE3_INCLUDE_DIR")
-                        .expect("SQLITE3_INCLUDE_DIR must be set if SQLITE3_LIB_DIR is set");
+                    let prefix = env_prefix();
+                    let mut header = env::var(format!("{}_INCLUDE_DIR", prefix))
+                        .expect(&format!("{}_INCLUDE_DIR must be set if {}_LIB_DIR is set", prefix, prefix));
                     header.push_str("/sqlite3.h");
                     header
                 }
@@ -186,31 +187,11 @@ mod build {
 
     // Prints the necessary cargo link commands and returns the path to the header.
     fn find_sqlite() -> HeaderLocation {
-        // On some systems, both libsqlite3 and libsqlcipher are present.
-        // Setting SQLITE3_LIBNAME to "sqlcipher" can ensure that the desired
-        // library is linked.
-        let libname: String = match env::var("SQLITE3_LIBNAME") {
-            Ok(newname) => {
-                if newname.starts_with("lib") &&
-                    env::var("SQLITE3_LIBNAME_STARTSWITHLIB").is_err() {
-                    writeln!(
-                        &mut ::std::io::stderr(),
-                        concat!(
-                            "SQLITE3_LIBNAME starts with 'lib'.  This is ",
-                            "probably not what you want.  Silence this ",
-                            "warning by setting SQLITE3_LIBNAME_STARTSWITHLIB."
-                        )
-                    ).expect("Failed to warn the user on stderr");
-                };
-                newname
-            },
-            Err(_err) => String::from("sqlite3")
-        };
+        let link_lib = link_lib();
 
         // Allow users to specify where to find SQLite.
-        if let Ok(dir) = env::var("SQLITE3_LIB_DIR") {
-            println!("cargo:rustc-link-lib={}", libname);
-            println!("cargo:rustc-link-search={}", dir);
+        if let Ok(dir) = env::var(format!("{}_LIB_DIR", env_prefix())) {
+            println!("cargo:rustc-link-lib={}", link_lib);
             return HeaderLocation::FromEnvironment;
         }
 
@@ -219,7 +200,7 @@ mod build {
         }
 
         // See if pkg-config can do everything for us.
-        match pkg_config::Config::new().print_system_libs(false).probe(&libname) {
+        match pkg_config::Config::new().print_system_libs(false).probe(link_lib) {
             Ok(mut lib) => {
                 if let Some(mut header) = lib.include_paths.pop() {
                     header.push("sqlite3.h");
@@ -233,7 +214,7 @@ mod build {
                 // request and hope that the library exists on the system paths. We used to
                 // output /usr/lib explicitly, but that can introduce other linking problems; see
                 // https://github.com/jgallagher/rusqlite/issues/207.
-                println!("cargo:rustc-link-lib={}", libname);
+                println!("cargo:rustc-link-lib={}", link_lib);
                 HeaderLocation::Wrapper
             }
         }
@@ -242,7 +223,7 @@ mod build {
     #[cfg(all(feature = "vcpkg", target_env = "msvc"))]
     fn try_vcpkg() -> Option<HeaderLocation> {
         // See if vcpkg can find it.
-        if let Ok(mut lib) = vcpkg::Config::new().probe(&libname) {
+        if let Ok(mut lib) = vcpkg::Config::new().probe(link_lib()) {
             if let Some(mut header) = lib.include_paths.pop() {
                 header.push("sqlite3.h");
                 return Some(HeaderLocation::FromPath(header.to_string_lossy().into()));
@@ -254,6 +235,22 @@ mod build {
     #[cfg(not(all(feature = "vcpkg", target_env = "msvc")))]
     fn try_vcpkg() -> Option<HeaderLocation> {
         None
+    }
+
+    fn env_prefix() -> &'static str {
+        if cfg!(feature = "sqlcipher") {
+            "SQLCIPHER"
+        } else {
+            "SQLITE3"
+        }
+    }
+
+    fn link_lib() -> &'static str {
+        if cfg!(feature = "sqlcipher") {
+            "sqlcipher"
+        } else {
+            "sqlite3"
+        }
     }
 
     #[cfg(not(feature = "buildtime_bindgen"))]
@@ -323,6 +320,7 @@ mod build {
             bindgen::builder()
                 .header(header.clone())
                 .parse_callbacks(Box::new(SqliteTypeChooser))
+                .rustfmt_bindings(true)
                 .generate()
                 .expect(&format!("could not run bindgen on header {}", header))
                 .write(Box::new(&mut output))
@@ -333,7 +331,7 @@ mod build {
             // was added in SQLite 3.8.3, but oring it in in prior versions of SQLite is harmless. We
             // don't want to not build just because this flag is missing (e.g., if we're linking against
             // SQLite 3.7.x), so append the flag manually if it isn't present in bindgen's output.
-            if !output.contains("pub const SQLITE_DETERMINISTIC:") {
+            if !output.contains("pub const SQLITE_DETERMINISTIC") {
                 output.push_str("\npub const SQLITE_DETERMINISTIC: i32 = 2048;\n");
             }
 
