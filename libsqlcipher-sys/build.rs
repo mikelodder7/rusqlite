@@ -123,7 +123,7 @@ mod build {
         match openssl_dir {
             Some(path) => Some(PathBuf::from(path)),
             None => {
-                let openssl_dir = env("OPENSSLDIR");
+                let openssl_dir = env("OPENSSL_DIR");
 
                 match openssl_dir {
                     Some(path) => Some(PathBuf::from(path)),
