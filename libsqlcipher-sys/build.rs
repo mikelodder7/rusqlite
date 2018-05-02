@@ -4,7 +4,7 @@ fn main() {
 
 #[cfg(feature = "bundled")]
 mod build {
-    extern crate cc;
+    extern crate gcc;
     use std::{env, fs};
     use std::ffi::OsString;
     use std::path::{Path, PathBuf};
