@@ -4,7 +4,7 @@ fn main() {
 
 #[cfg(feature = "bundled")]
 mod build {
-    extern crate gcc;
+    extern crate cc;
     use std::{env, fs};
     use std::ffi::OsString;
     use std::path::{Path, PathBuf};
@@ -13,7 +13,7 @@ mod build {
         let target = env::var("TARGET").unwrap();
         let host = env::var("HOST").unwrap();
 
-        let mut cc = gcc::Build::new();
+        let mut cc = cc::Build::new();
         cc.file("sqlite3/sqlite3.c")
             .flag("-DSQLITE_CORE")
             .flag("-DSQLITE_DEFAULT_FOREIGN_KEYS=1")
