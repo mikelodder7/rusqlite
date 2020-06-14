@@ -1,3 +1,13 @@
+# Support for SQLCipher is now available in [Rusqlite](https://github.com/rusqlite/rusqlite)
+
+Use [Rusqlite](https://github.com/rusqlite/rusqlite) with SQLCipher support by adding this to your Cargo.toml:
+
+```toml
+[dependencies.rusqlite]
+version = "0.23.1"
+features = ["sqlcipher"]
+```
+
 # Rusqlcipher
 
 [![Travis Build Status](https://api.travis-ci.org/jgallagher/rusqlite.svg?branch=master)](https://travis-ci.org/jgallagher/rusqlite)
